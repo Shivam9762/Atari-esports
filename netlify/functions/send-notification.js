@@ -1,41 +1,30 @@
 exports.handler = async (event, context) => {
-  // Allow only POST requests
+  // सिर्फ POST रिक्वेस्ट अलाउ करें
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
   }
 
   try {
-    // Parse the data sent from the frontend (app)
     const body = JSON.parse(event.body || '{}');
-    const { title, message, targetUserId } = body;
+    const { title, message } = body;
 
-    // Get OneSignal keys from Netlify Environment Variables
+    // Netlify की Environment Variables से चाबियाँ उठाएं
     const appId = process.env.ONESIGNAL_APP_ID;
     const apiKey = process.env.ONESIGNAL_REST_API_KEY;
 
     if (!appId || !apiKey) {
-      return { 
-        statusCode: 500, 
-        body: JSON.stringify({ error: 'OneSignal keys missing in Netlify environment variables.' }) 
-      };
+      return { statusCode: 500, body: JSON.stringify({ error: 'OneSignal keys missing' }) };
     }
 
-    // Prepare the payload for OneSignal
+    // यहाँ हमने 'Targeted' हटाकर सीधे 'Broadcast' कर दिया है
     let payload = {
       app_id: appId,
       headings: { en: title || 'Atari Esports' },
-      contents: { en: message || 'New update available!' }
+      contents: { en: message || 'New update available!' },
+      included_segments: ['Subscribed Users'] 
     };
 
-    // If sending to a specific user (Targeted)
-    if (targetUserId) {
-      payload.include_aliases = { external_id: [targetUserId] };
-    } else {
-      // If sending to everyone (Broadcast)
-      payload.included_segments = ['Subscribed Users']; 
-    }
-
-    // Send the request to OneSignal API
+    // OneSignal API को रिक्वेस्ट भेजें
     const response = await fetch('https://onesignal.com/api/v1/notifications', {
       method: 'POST',
       headers: {
@@ -46,10 +35,6 @@ exports.handler = async (event, context) => {
     });
 
     const data = await response.json();
-
-    if (!response.ok) {
-      return { statusCode: response.status, body: JSON.stringify({ error: data }) };
-    }
 
     return {
       statusCode: 200,
